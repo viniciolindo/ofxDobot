@@ -7,4 +7,8 @@ it is not completed version but it works also with multiple Dobot only with seri
 
 http://www.dobot.cc/dobot-magician/product-overview.html
 
+http://www.ultraviolet.to
+
+http://www.giuliopernice.com
+
 thank's to Ultravioletto 
