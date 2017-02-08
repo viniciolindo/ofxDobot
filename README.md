@@ -10,5 +10,3 @@ http://www.dobot.cc/dobot-magician/product-overview.html
 http://www.ultraviolet.to
 
 http://www.giuliopernice.com
-
-thank's to Ultravioletto 
