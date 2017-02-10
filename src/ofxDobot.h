@@ -14,9 +14,9 @@ typedef struct TagPose {
 }Pose;
 
 typedef struct tagHOMEParams {
-	float x; 
+	float x;
 	float y;
-	float z; 
+	float z;
 	float r;
 } HOMEParams;
 
@@ -47,7 +47,7 @@ typedef struct tagCPParams {
 		float acc; //Maximum value of actual acceleration,using in non-real-time mode
 		float period; //Interpolation cycle, real-time mode
 	};
-	uint8_t realTimeTrack; //0—non real time mode; 1—non real time mode
+	uint8_t realTimeTrack; //0ï¿½non real time mode; 1ï¿½non real time mode
 } CPParams;
 
 typedef struct tagCPCmd {
@@ -94,6 +94,7 @@ public:
 	bool setup(string serialName);
 
 	bool load(string fileName);
+	void update();
 	void play();
 	void stop();
 	void clear();
@@ -144,7 +145,7 @@ public:
 	void setAngleSensorStaticError(ArmAngleError armAngleError);
 	ArmAngleError getAngleSensorStaticError();
 
-	
+
 
 private:
 
@@ -156,7 +157,7 @@ private:
 	ofSerial serial;
 
 	Pose pose;
-	
+
 	Pose nullPose;
 
 	JOGJointParams jogJointParams;
@@ -175,14 +176,18 @@ private:
 	enum protocolFunction{ DeviceSN, DeviceName, DeviceVersion, GetPose = 10, ResetPose, GetAlarms = 20, ClearAllAlarmsState, HomeParams = 30, HomeCmd, HHTTrigMode = 40, HHTrigOutputEnabled,
 		HHTTrigOutput, ArmOrientation = 50, EndEffectorParams = 60, EndEffectorLaser,  EndEffectorSuctionCup, EndEffectorGripper, SETGETJOGJointParams = 70, SETGETJOGCoordinateParams, SETGETJOGCommonParams , SetJOGCmd,
 		PTPJointParams = 80, PTPCoordinateParams, PTPJumpParams, PTPCommonParams, PTPCmd, SETGETCPParams = 90, SetCPCmd, SetCPLECmd, ARCParams = 100, ARCCmd, SetWAITCmd = 110, TRIGCmd = 120, IOMultiplexing = 130,
-		IODO, IOPWM, GetIODI, GetIOADC, SetEMotor, AngleSensorStaticError = 140,  WIFIConfigMode = 150, WIFISSID, WIFIPassword, WIFIIPAddress, WIFINetmask, WIFIGateway, WIFIDNS, GetWIFIConnectStatus, SetQueuedCmdStartExec = 240, 
+		IODO, IOPWM, GetIODI, GetIOADC, SetEMotor, AngleSensorStaticError = 140,  WIFIConfigMode = 150, WIFISSID, WIFIPassword, WIFIIPAddress, WIFINetmask, WIFIGateway, WIFIDNS, GetWIFIConnectStatus, SetQueuedCmdStartExec = 240,
 		SetQueuedCmdStopExec, SetQueueCmdForceStopExec, SetQueuedCmdStartDownload, SetQueuedCmdStopDownload, SetQueuedCmdClear, GetQueuedCmdCurrentIndex, GetQueuedCmdLeftSpace
 	};
 
-	
+
 	string noConnection;
 
 	uint8_t *alarmsState;
+
+	ofxXmlSettings timeline;
+	int 					rowIndex;
+	float 			lastTimeMessage;
 
 
 

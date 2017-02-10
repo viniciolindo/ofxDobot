@@ -23,7 +23,7 @@ bool ofxDobot::setup(string serialName) {
 	queuedLeftSpace = 0;
 
 	return connected;
-	
+
 }
 
 
@@ -61,46 +61,15 @@ bool ofxDobot::load(string fileName) {
 
 	*/
 
-
-	ofxXmlSettings timeline;
 	if (timeline.load(fileName)) {
 		timeline.pushTag("root");
-		int rowIndex = 0;
-		while (timeline.tagExists("row" + ofToString(rowIndex))) {
-
-			if (timeline.tagExists("vel" + ofToString(rowIndex))) {
-				timeline.pushTag("vel" + ofToString(rowIndex));
-				float vel = timeline.getValue("vel", 0);
-				float acc = timeline.getValue("acc", 0);
-				setPTPCommonParams(true, vel, acc);
-				timeline.popTag();
-
-			}
-
-
-			timeline.pushTag("row" + ofToString(rowIndex));
-			ofLog(OF_LOG_VERBOSE, "row " + ofToString(rowIndex));
-			int type = timeline.getValue("item_0", 0);
-			double x = timeline.getValue("item_2", 0);
-			double y = timeline.getValue("item_3", 0);
-			double z = timeline.getValue("item_4", 0);
-			double r = timeline.getValue("item_5", 0);
-			double timePause = timeline.getValue("item_6", 0);
-
-			setPTPCmd((ptpMode)type, x, y, z, r);
-
-			if (timePause > 0) {
-				WAITCmd waitCmd;
-				waitCmd.timeout = timePause * 1000;
-				setWAITCmd(waitCmd);
-			}
-
-			rowIndex++;
-			timeline.popTag();
-		}
+		rowIndex = 0;
+		return true;
 	}
+
 	else {
 		ofLog(OF_LOG_ERROR, "file " + fileName + " not found");
+		return false;
 	}
 }
 
@@ -122,10 +91,48 @@ void ofxDobot::clear() {
 
 }
 
+void ofxDobot::update(){
+
+if ( ( ofGetElapsedTimef() - lastTimeMessage > 1 ) &&  timeline.tagExists("row"+ofToString(rowIndex))){
+		if (timeline.tagExists("vel" + ofToString(rowIndex))) {
+			timeline.pushTag("vel" + ofToString(rowIndex));
+			float vel = timeline.getValue("vel", 0);
+			float acc = timeline.getValue("acc", 0);
+			setPTPCommonParams(true, vel, acc);
+			timeline.popTag();
+			ofLog(OF_LOG_VERBOSE, "vel " + ofToString(rowIndex));
+		}
+
+
+		timeline.pushTag("row" + ofToString(rowIndex));
+		ofLog(OF_LOG_VERBOSE, "row " + ofToString(rowIndex));
+		int type = timeline.getValue("item_0", 0);
+		double x = timeline.getValue("item_2", 0);
+		double y = timeline.getValue("item_3", 0);
+		double z = timeline.getValue("item_4", 0);
+		double r = timeline.getValue("item_5", 0);
+		double timePause = timeline.getValue("item_6", 0);
+
+		setPTPCmd((ptpMode)type, x, y, z, r);
+
+		if (timePause > 0) {
+			WAITCmd waitCmd;
+			waitCmd.timeout = timePause * 1000;
+			setWAITCmd(waitCmd);
+		}
+
+		rowIndex++;
+		timeline.popTag();
+		lastTimeMessage = ofGetElapsedTimef();
+		ofLog(OF_LOG_VERBOSE,"Space left = " + ofToString(getQueuedCmdLeftSpace()));
+	}
+
+
+}
 
 string ofxDobot::getDeviceSN() {
 
-	
+
 
 	if (connected) {
 		uint8_t  message[7];
@@ -143,7 +150,7 @@ string ofxDobot::getDeviceSN() {
 			return "";
 		}
 		else {
-			
+
 			waitingMessage = true;
 			while (waitingMessage) {
 				yield();
@@ -151,7 +158,7 @@ string ofxDobot::getDeviceSN() {
 
 			return serialName;
 		}
-		
+
 	}
 
 	else {
@@ -231,7 +238,7 @@ void ofxDobot::resetPose(uint8_t manual, float rearArmAngle, float frontArmAngle
 		if (result == OF_SERIAL_ERROR) {
 			ofLog(OF_LOG_ERROR, "reset pose error");
 		}
-		
+
 	}
 
 	else {
@@ -453,7 +460,7 @@ void ofxDobot::setPTPCmd(ptpMode mode, float x, float y, float z, float r) {
 		message[4] |= 1 & 0x01;
 		message[4] |= (1 << 1) & 0x02;
 		message[5] = mode;
-		
+
 		memcpy(&message[6], &x, 4);
 		memcpy(&message[10], &y, 4);
 		memcpy(&message[14], &z, 4);
@@ -601,7 +608,7 @@ JOGCoordinateParams ofxDobot::getJOGCoordinateParams() {
 			waitingMessage = true;
 			while (waitingMessage) {
 				yield();
-			}	
+			}
 		}
 	}
 
@@ -895,7 +902,7 @@ void ofxDobot::setWAITCmd(WAITCmd cmd) {
 		message[4] = 0;
 		message[4] |= 1 & 0x01;
 		message[4] |= (1 << 1) & 0x02;
-		
+
 		memcpy(&message[5], &cmd.timeout, 4);
 
 
@@ -931,7 +938,7 @@ void ofxDobot::setAngleSensorStaticError(ArmAngleError armAngle) {
 
 		memcpy(&message[5], &armAngle.rearArmAngleError, 4);
 		memcpy(&message[9], &armAngle.frontArmAngleError, 4);
-		
+
 
 		uint8_t checksum = 0;
 		for (int i = 0; i < message[2]; i++) {
@@ -1010,7 +1017,7 @@ void ofxDobot::setQueuedCmdStartExec() {
 		if (result == OF_SERIAL_ERROR) {
 			ofLog(OF_LOG_ERROR, "serial error setQueueCmdStartExec");
 		}
-		
+
 	}
 
 	else {
@@ -1156,14 +1163,14 @@ int ofxDobot::getQueuedCmdLeftSpace() {
 
 void ofxDobot::threadedFunction() {
 
-	
+
 	while (isThreadRunning()) {
 
 		sleep(30);
 		if (connected) {
 			int numByte = serial.available();
 			if (numByte > 0) {
-				
+
 				uint8_t message[128];
 				serial.readBytes(message,numByte);
 				if (message[0] == 0xAA && message[1] == 0xAA) {
@@ -1192,7 +1199,7 @@ void ofxDobot::threadedFunction() {
 							}
 
 							waitingMessage = false;
-						
+
 						}
 						else if (id == GetPose) {
 
@@ -1221,7 +1228,7 @@ void ofxDobot::threadedFunction() {
 							ofLog(OF_LOG_VERBOSE, "Clear alarms state");
 						}
 
-						
+
 						else if (id == HomeParams) {
 							ofLog(OF_LOG_VERBOSE, "Home Params");
 							if (message[4] == 11) {
@@ -1286,7 +1293,7 @@ void ofxDobot::threadedFunction() {
 							}
 
 						}
-						
+
 
 						else if (id == SetJOGCmd) {
 
@@ -1321,7 +1328,7 @@ void ofxDobot::threadedFunction() {
 									memcpy(&queuedCmdIndex, &message[5], 8);
 									ofLog(OF_LOG_VERBOSE, "Queued index = " + ofToString(queuedCmdIndex));
 								}
-								
+
 							}
 							else {
 								ofLog(OF_LOG_VERBOSE, "GETCPParams");
@@ -1360,7 +1367,7 @@ void ofxDobot::threadedFunction() {
 							}
 						}
 
-						
+
 						else if (id == SetQueuedCmdStartExec) {
 							ofLog(OF_LOG_VERBOSE, "SetQueuedCmdStartExec");
 						}
@@ -1394,7 +1401,7 @@ void ofxDobot::threadedFunction() {
 					ofLog(OF_LOG_ERROR, "non conformed message");
 					waitingMessage = false;
 				}
-				
+
 			}
 			else {
 				//ofLog(OF_LOG_ERROR, "non returned message");
