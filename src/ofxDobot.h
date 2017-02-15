@@ -1,7 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include "ofMain.h"
 #include "ofxXmlSettings.h"
+
+
+#define TIMEOUT 1000
 
 typedef struct TagPose {
 
@@ -10,6 +13,8 @@ typedef struct TagPose {
 	float z = 0;
 	float r = 0;
 	float jointAngle[4] = { 0,0,0,0 };
+
+
 
 }Pose;
 
@@ -149,6 +154,7 @@ public:
 
 private:
 
+
 	void threadedFunction();
 
 	bool connected;
@@ -181,13 +187,22 @@ private:
 	};
 
 
-	string noConnection;
+	string			noConnection;
 
-	uint8_t *alarmsState;
+	uint8_t			*alarmsState;
 
-	ofxXmlSettings timeline;
-	int 					rowIndex;
+	ofxXmlSettings	timeline;
+	int 			rowIndex;
 	float 			lastTimeMessage;
+
+
+	int				time;
+
+	ofBuffer		buffer;
+	bool			isXml;
+
+	vector<string>	lines;
+
 
 
 

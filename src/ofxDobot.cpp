@@ -9,8 +9,6 @@ ofxDobot::ofxDobot(){
 
 bool ofxDobot::setup(string serialName) {
 
-
-
 	this->serialName = serialName;
 
 	connected = serial.setup(serialName, 115200);
@@ -20,57 +18,46 @@ bool ofxDobot::setup(string serialName) {
 	startThread();
 
 	queuedCmdIndex = 0;
-	queuedLeftSpace = 0;
+	queuedLeftSpace = 32;
+	lastTimeMessage = 0;
 
 	return connected;
 
 }
 
 
+
+
 bool ofxDobot::load(string fileName) {
 
-	/*ofFile file;
+	ofFile file;
 	bool exist = file.open(ofToDataPath(fileName));
+	if (file.getExtension() == "xml") {
 
-	if (exist) {
-
-		ofBuffer buffer = file.readToBuffer();
-		while (!buffer.isLastLine()) {
-			string line = buffer.getNextLine();
-			vector<string> splittedLine = ofSplitString(line, " ");
-			if (splittedLine[0] == "PTPCommonParams") {
-
-				setPTPCommonParams(ofToBool(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]));
-
-			}
-			else if (splittedLine[0] == "PTPCmd") {
-
-				setPTPCmd((ptpMode)ofToInt(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]), ofToFloat(splittedLine[4]), ofToFloat(splittedLine[5]));
-			}
-
+		isXml = true;
+		if (timeline.load(fileName)) {
+			timeline.pushTag("root");
+			rowIndex = 0;
 		}
 
-
+		else {
+			ofLog(OF_LOG_ERROR, "file " + fileName + " not found");
+		}
 
 	}
-	else {
+	else if (file.getExtension() == "txt") {
 
+		rowIndex = 0;
+		isXml = false;
+		
+		buffer = file.readToBuffer();
+		string textFile = buffer.getText();
+		lines = ofSplitString(textFile, "\n");
+		
 	}
 
 	return exist;
 
-	*/
-
-	if (timeline.load(fileName)) {
-		timeline.pushTag("root");
-		rowIndex = 0;
-		return true;
-	}
-
-	else {
-		ofLog(OF_LOG_ERROR, "file " + fileName + " not found");
-		return false;
-	}
 }
 
 void ofxDobot::play() {
@@ -93,45 +80,91 @@ void ofxDobot::clear() {
 
 void ofxDobot::update(){
 
-if ( ( ofGetElapsedTimef() - lastTimeMessage > 1 ) &&  timeline.tagExists("row"+ofToString(rowIndex))){
-		if (timeline.tagExists("vel" + ofToString(rowIndex))) {
-			timeline.pushTag("vel" + ofToString(rowIndex));
-			float vel = timeline.getValue("vel", 0);
-			float acc = timeline.getValue("acc", 0);
-			setPTPCommonParams(true, vel, acc);
+	if (queuedLeftSpace > 0 && ofGetElapsedTimef() - lastTimeMessage > 1 ){
+		if ( isXml && 	timeline.tagExists("row" + ofToString(rowIndex))){
+
+			if (timeline.tagExists("vel" + ofToString(rowIndex))) {
+				timeline.pushTag("vel" + ofToString(rowIndex));
+				float vel = timeline.getValue("vel", 0);
+				float acc = timeline.getValue("acc", 0);
+				setPTPCommonParams(true, vel, acc);
+				timeline.popTag();
+				ofLog(OF_LOG_VERBOSE, "vel " + ofToString(rowIndex));
+			}
+
+
+			timeline.pushTag("row" + ofToString(rowIndex));
+			ofLog(OF_LOG_VERBOSE, "row " + ofToString(rowIndex));
+			int type = timeline.getValue("item_0", 0);
+			double x = timeline.getValue("item_2", 0);
+			double y = timeline.getValue("item_3", 0);
+			double z = timeline.getValue("item_4", 0);
+			double r = timeline.getValue("item_5", 0);
+			double timePause = timeline.getValue("item_6", 0);
+
+			setPTPCmd((ptpMode)type, x, y, z, r);
+
+
+
+			if (timePause > 0) {
+				WAITCmd waitCmd;
+				waitCmd.timeout = timePause * 1000;
+				setWAITCmd(waitCmd);
+			}
+
+			rowIndex++;
 			timeline.popTag();
-			ofLog(OF_LOG_VERBOSE, "vel " + ofToString(rowIndex));
+			lastTimeMessage = ofGetElapsedTimef();
 		}
+		else if (!isXml && rowIndex < lines.size() ) {
+
+			vector<string> splittedLine = ofSplitString(lines[rowIndex], " ");
+
+			if (splittedLine[0] == "PTPCommonParams") {
+				if (splittedLine.size() >= 4)
+					setPTPCommonParams(ofToBool(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]));
+				else
+					ofLog(OF_LOG_ERROR, "PTPCommonParams error line " + ofToString(rowIndex));
+
+			}
+			else if (splittedLine[0] == "PTPCmd") {
+				if (splittedLine.size() >= 6)
+					setPTPCmd((ptpMode)ofToInt(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]), ofToFloat(splittedLine[4]), ofToFloat(splittedLine[5]));
+				else
+					ofLog(OF_LOG_ERROR, "PTPCmd error line " + ofToString(rowIndex));
+			}
+			else if (splittedLine[0] == "WAITCmd") {
+				if (splittedLine.size() >= 2) {
+					WAITCmd cmd;
+					cmd.timeout = ofToInt(splittedLine[1]);
+					setWAITCmd(cmd);
+				}
+				else {
+					ofLog(OF_LOG_ERROR, "WAITCmd error line " + ofToString(rowIndex));
+				}
 
 
-		timeline.pushTag("row" + ofToString(rowIndex));
-		ofLog(OF_LOG_VERBOSE, "row " + ofToString(rowIndex));
-		int type = timeline.getValue("item_0", 0);
-		double x = timeline.getValue("item_2", 0);
-		double y = timeline.getValue("item_3", 0);
-		double z = timeline.getValue("item_4", 0);
-		double r = timeline.getValue("item_5", 0);
-		double timePause = timeline.getValue("item_6", 0);
-
-		setPTPCmd((ptpMode)type, x, y, z, r);
-
-		if (timePause > 0) {
-			WAITCmd waitCmd;
-			waitCmd.timeout = timePause * 1000;
-			setWAITCmd(waitCmd);
+			}
+			rowIndex++;
+			ofLog(OF_LOG_VERBOSE, "line  " + ofToString(rowIndex));
+			lastTimeMessage = ofGetElapsedTimef();
 		}
-
-		rowIndex++;
-		timeline.popTag();
-		lastTimeMessage = ofGetElapsedTimef();
-		ofLog(OF_LOG_VERBOSE,"Space left = " + ofToString(getQueuedCmdLeftSpace()));
 	}
+	else if (queuedLeftSpace == 0 && ofGetElapsedTimef() - lastTimeMessage > 1) {
+
+		getQueuedCmdLeftSpace();
+		lastTimeMessage = ofGetElapsedTimef();
+
+	}
+
+
 
 
 }
 
-string ofxDobot::getDeviceSN() {
 
+
+string ofxDobot::getDeviceSN() {
 
 
 	if (connected) {
@@ -1139,15 +1172,21 @@ int ofxDobot::getQueuedCmdLeftSpace() {
 			checksum += message[i + 3];
 		}
 		message[5] = 0 - checksum;
-		int result = serial.writeBytes(message, 7);
+		int result = serial.writeBytes(message, 6);
 		if (result == OF_SERIAL_ERROR) {
 			ofLog(OF_LOG_ERROR, "serial error get queued left space");
 
 		}
 		else {
 			waitingMessage = true;
+			int time = 0;
 			while (waitingMessage) {
 				yield();
+				time += ofGetElapsedTimeMillis();
+				if (time > TIMEOUT) {
+					waitingMessage = false;
+					ofLog(OF_LOG_ERROR, " queued left space timeout error");
+				}
 			}
 		}
 
@@ -1157,7 +1196,7 @@ int ofxDobot::getQueuedCmdLeftSpace() {
 		ofLog(OF_LOG_ERROR, noConnection);
 	}
 
-	return queuedCmdIndex;
+	return queuedLeftSpace;
 
 }
 
@@ -1318,6 +1357,7 @@ void ofxDobot::threadedFunction() {
 							ofLog(OF_LOG_VERBOSE, "PTPCmd");
 							memcpy(&queuedCmdIndex, &message[5], 8);
 							ofLog(OF_LOG_VERBOSE, "queued index = " + ofToString(queuedCmdIndex));
+							queuedLeftSpace = getQueuedCmdLeftSpace();
 						}
 
 						else if (id == SETGETCPParams) {
@@ -1348,6 +1388,7 @@ void ofxDobot::threadedFunction() {
 
 							memcpy(&queuedCmdIndex, &message[5], 8);
 							ofLog(OF_LOG_VERBOSE, "SetCPCmd Queued index = " + ofToString(queuedCmdIndex));
+						
 
 						}
 						else if (id == SetWAITCmd) {
@@ -1389,6 +1430,9 @@ void ofxDobot::threadedFunction() {
 							ofLog(OF_LOG_VERBOSE, "queued left space = " + ofToString(queuedLeftSpace));
 							waitingMessage = false;
 						}
+
+
+						
 
 
 					}
