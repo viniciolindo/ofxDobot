@@ -30,33 +30,44 @@ bool ofxDobot::setup(string serialName) {
 
 bool ofxDobot::load(string fileName) {
 
+	cout << " file name = " << fileName << endl;
 	ofFile file;
 	bool exist = file.open(ofToDataPath(fileName));
-	if (file.getExtension() == "xml") {
+	if ( exist ){
+		if (file.getExtension() == "xml") {
+			file.close();
+			isXml = true;
+			if (timeline.loadFile(ofToDataPath(fileName))) {
+				timeline.pushTag("root");
+				rowIndex = 0;
+			}
 
-		isXml = true;
-		if (timeline.load(fileName)) {
-			timeline.pushTag("root");
+			else {
+				ofLog(OF_LOG_ERROR, "file " + fileName + " not found");
+			}
+
+		}
+		else if (file.getExtension() == "txt") {
+
 			rowIndex = 0;
+			isXml = false;
+
+			buffer = file.readToBuffer();
+			string textFile = buffer.getText();
+			lines = ofSplitString(textFile, "\n");
+
 		}
-
-		else {
-			ofLog(OF_LOG_ERROR, "file " + fileName + " not found");
+		else{
+			ofLog(OF_LOG_ERROR,fileName +" extension not compatible");
 		}
+}
+else{
+	ofLog(OF_LOG_ERROR,fileName +" don't exist");
 
-	}
-	else if (file.getExtension() == "txt") {
+}
 
-		rowIndex = 0;
-		isXml = false;
-		
-		buffer = file.readToBuffer();
-		string textFile = buffer.getText();
-		lines = ofSplitString(textFile, "\n");
-		
-	}
 
-	return exist;
+return exist;
 
 }
 
@@ -81,6 +92,8 @@ void ofxDobot::clear() {
 void ofxDobot::update(){
 
 	if (queuedLeftSpace > 0 && ofGetElapsedTimef() - lastTimeMessage > 1 ){
+
+
 		if ( isXml && 	timeline.tagExists("row" + ofToString(rowIndex))){
 
 			if (timeline.tagExists("vel" + ofToString(rowIndex))) {
@@ -188,8 +201,8 @@ string ofxDobot::getDeviceSN() {
 			while (waitingMessage) {
 				yield();
 			}
-
-			return serialName;
+			ofLog(OF_LOG_VERBOSE,"serialNumber = "+serialNumber);
+			return serialNumber;
 		}
 
 	}
@@ -198,6 +211,43 @@ string ofxDobot::getDeviceSN() {
 		ofLog(OF_LOG_ERROR, noConnection);
 		return "";
 	}
+
+}
+
+string ofxDobot::getName(){
+
+	if (connected) {
+		uint8_t  message[6];
+		message[0] = 0xAA;
+		message[1] = 0xAA;
+		message[2] = 2;
+		message[3] = DeviceName;
+		message[4] = 0;
+		message[4] |= 0 & 0x01;
+		message[4] |= (0 << 1) & 0x02;
+		message[5] = 0 - (message[3] + message[4]);
+		int result = serial.writeBytes(message, 6);
+		if (result == OF_SERIAL_ERROR) {
+			ofLog(OF_LOG_ERROR, "error on get device Name");
+			return "";
+		}
+		else {
+
+			waitingMessage = true;
+			while (waitingMessage) {
+				yield();
+			}
+			ofLog(OF_LOG_VERBOSE,"name = "+name);
+			return name;
+
+		}
+	}
+	else {
+		ofLog(OF_LOG_ERROR, noConnection);
+		return "";
+	}
+
+
 
 }
 
@@ -1228,18 +1278,30 @@ void ofxDobot::threadedFunction() {
 						checksum += message[3 + i];
 					}
 					if ( checksum == 0) {
-						serialName.clear();
+
 						ofLog(OF_LOG_VERBOSE,"message corrected");
 
 						if (id == DeviceSN) {
+							serialNumber.clear();
 							for (int i = 0; i < payloadLenght - 2; i++) {
 								const char c = message[5 + i];
-								serialName.append(&c, 1);
+								serialNumber.append(&c, 1);
 							}
 
 							waitingMessage = false;
 
 						}
+						else if ( id == DeviceName ){
+							name.clear();
+							for (int i = 0; i < payloadLenght - 2; i++) {
+								const char c = message[5 + i];
+								name.append(&c, 1);
+							}
+
+							waitingMessage = false;
+
+						}
+
 						else if (id == GetPose) {
 
 							ofLog(OF_LOG_VERBOSE, "Get Pose");
@@ -1278,6 +1340,9 @@ void ofxDobot::threadedFunction() {
 
 						else if (id == HomeCmd) {
 							ofLog(OF_LOG_VERBOSE, "Home Cmd");
+							memcpy(&queuedCmdIndex, &message[5], 8);
+							ofLog(OF_LOG_VERBOSE, " queued index = " + ofToString(queuedCmdIndex));
+							queuedLeftSpace = getQueuedCmdLeftSpace();
 
 						}
 						else if (id == SETGETJOGJointParams) {
@@ -1388,7 +1453,7 @@ void ofxDobot::threadedFunction() {
 
 							memcpy(&queuedCmdIndex, &message[5], 8);
 							ofLog(OF_LOG_VERBOSE, "SetCPCmd Queued index = " + ofToString(queuedCmdIndex));
-						
+
 
 						}
 						else if (id == SetWAITCmd) {
@@ -1432,7 +1497,7 @@ void ofxDobot::threadedFunction() {
 						}
 
 
-						
+
 
 
 					}

@@ -106,6 +106,7 @@ public:
 
 
 	string getDeviceSN();
+	string getName();
 
 	void resetPose(uint8_t manual, float rearArmAngle, float frontArmAngle);
 	Pose getPose();
@@ -158,8 +159,10 @@ private:
 	void threadedFunction();
 
 	bool connected;
-	string serialName;
+	string serialNumber;
+	string name;
 
+	string serialName;
 	ofSerial serial;
 
 	Pose pose;
