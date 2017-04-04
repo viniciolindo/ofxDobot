@@ -21,6 +21,8 @@ bool ofxDobot::setup(string serialName) {
 	queuedLeftSpace = 32;
 	lastTimeMessage = 0;
 
+    cmdTimeout = 1000;
+    
 	return connected;
 
 }
@@ -71,6 +73,12 @@ return exist;
 
 }
 
+void ofxDobot::restart(){
+
+	rowIndex = 0;
+
+}
+
 void ofxDobot::play() {
 
 	setQueuedCmdStartExec();
@@ -91,88 +99,78 @@ void ofxDobot::clear() {
 
 void ofxDobot::update(){
 
-	if (queuedLeftSpace > 0 && ofGetElapsedTimef() - lastTimeMessage > 1 ){
+    if ( getQueuedCmdLeftSpace() >= 3 ){
+        if ( isXml && 	timeline.tagExists("row" + ofToString(rowIndex))){
+
+            if (timeline.tagExists("vel" + ofToString(rowIndex))) {
+                timeline.pushTag("vel" + ofToString(rowIndex));
+                float vel = timeline.getValue("vel", 0);
+                float acc = timeline.getValue("acc", 0);
+                setPTPCommonParams(true, vel, acc);
+                timeline.popTag();
+                ofLog(OF_LOG_VERBOSE, "vel " + ofToString(rowIndex));
+            }
 
 
-		if ( isXml && 	timeline.tagExists("row" + ofToString(rowIndex))){
+            timeline.pushTag("row" + ofToString(rowIndex));
+            ofLog(OF_LOG_VERBOSE, "row " + ofToString(rowIndex));
+            int type = timeline.getValue("item_0", 0);
+            double x = timeline.getValue("item_2", 0);
+            double y = timeline.getValue("item_3", 0);
+            double z = timeline.getValue("item_4", 0);
+            double r = timeline.getValue("item_5", 0);
+            double timePause = timeline.getValue("item_6", 0);
 
-			if (timeline.tagExists("vel" + ofToString(rowIndex))) {
-				timeline.pushTag("vel" + ofToString(rowIndex));
-				float vel = timeline.getValue("vel", 0);
-				float acc = timeline.getValue("acc", 0);
-				setPTPCommonParams(true, vel, acc);
-				timeline.popTag();
-				ofLog(OF_LOG_VERBOSE, "vel " + ofToString(rowIndex));
-			}
-
-
-			timeline.pushTag("row" + ofToString(rowIndex));
-			ofLog(OF_LOG_VERBOSE, "row " + ofToString(rowIndex));
-			int type = timeline.getValue("item_0", 0);
-			double x = timeline.getValue("item_2", 0);
-			double y = timeline.getValue("item_3", 0);
-			double z = timeline.getValue("item_4", 0);
-			double r = timeline.getValue("item_5", 0);
-			double timePause = timeline.getValue("item_6", 0);
-
-			setPTPCmd((ptpMode)type, x, y, z, r);
-
-
-
-			if (timePause > 0) {
-				WAITCmd waitCmd;
-				waitCmd.timeout = timePause * 1000;
-				setWAITCmd(waitCmd);
-			}
-
-			rowIndex++;
-			timeline.popTag();
-			lastTimeMessage = ofGetElapsedTimef();
-		}
-		else if (!isXml && rowIndex < lines.size() ) {
-
-			vector<string> splittedLine = ofSplitString(lines[rowIndex], " ");
-
-			if (splittedLine[0] == "PTPCommonParams") {
-				if (splittedLine.size() >= 4)
-					setPTPCommonParams(ofToBool(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]));
-				else
-					ofLog(OF_LOG_ERROR, "PTPCommonParams error line " + ofToString(rowIndex));
-
-			}
-			else if (splittedLine[0] == "PTPCmd") {
-				if (splittedLine.size() >= 6)
-					setPTPCmd((ptpMode)ofToInt(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]), ofToFloat(splittedLine[4]), ofToFloat(splittedLine[5]));
-				else
-					ofLog(OF_LOG_ERROR, "PTPCmd error line " + ofToString(rowIndex));
-			}
-			else if (splittedLine[0] == "WAITCmd") {
-				if (splittedLine.size() >= 2) {
-					WAITCmd cmd;
-					cmd.timeout = ofToInt(splittedLine[1]);
-					setWAITCmd(cmd);
-				}
-				else {
-					ofLog(OF_LOG_ERROR, "WAITCmd error line " + ofToString(rowIndex));
-				}
-
-
-			}
-			rowIndex++;
-			ofLog(OF_LOG_VERBOSE, "line  " + ofToString(rowIndex));
-			lastTimeMessage = ofGetElapsedTimef();
-		}
-	}
-	else if (queuedLeftSpace == 0 && ofGetElapsedTimef() - lastTimeMessage > 1) {
-
-		getQueuedCmdLeftSpace();
-		lastTimeMessage = ofGetElapsedTimef();
-
-	}
+            
+            setPTPCmd((ptpMode)type, x, y, z, r);
 
 
 
+            if (timePause > 0) {
+                WAITCmd waitCmd;
+                waitCmd.timeout = timePause * 1000;
+                
+                setWAITCmd(waitCmd);
+            }
 
+            rowIndex++;
+            timeline.popTag();
+            lastTimeMessage = ofGetElapsedTimef();
+        }
+        else if (!isXml && rowIndex < lines.size() ) {
+
+            vector<string> splittedLine = ofSplitString(lines[rowIndex], " ");
+
+            if (splittedLine[0] == "PTPCommonParams") {
+                if (splittedLine.size() >= 4)
+                    setPTPCommonParams(ofToBool(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]));
+                else
+                    ofLog(OF_LOG_ERROR, "PTPCommonParams error line " + ofToString(rowIndex));
+
+            }
+            else if (splittedLine[0] == "PTPCmd") {
+                if (splittedLine.size() >= 6)
+                    setPTPCmd((ptpMode)ofToInt(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]), ofToFloat(splittedLine[4]), ofToFloat(splittedLine[5]));
+                else
+                    ofLog(OF_LOG_ERROR, "PTPCmd error line " + ofToString(rowIndex));
+            }
+            else if (splittedLine[0] == "WAITCmd") {
+                if (splittedLine.size() >= 2) {
+                    WAITCmd cmd;
+                    cmd.timeout = ofToInt(splittedLine[1]);
+                    setWAITCmd(cmd);
+                }
+                else {
+                    ofLog(OF_LOG_ERROR, "WAITCmd error line " + ofToString(rowIndex));
+                }
+
+
+            }
+            rowIndex++;
+            ofLog(OF_LOG_VERBOSE, "line  " + ofToString(rowIndex));
+            lastTimeMessage = ofGetElapsedTimef();
+        }
+    }
 }
 
 
@@ -197,6 +195,7 @@ string ofxDobot::getDeviceSN() {
 		}
 		else {
 
+            timeMessage = ofGetElapsedTimeMillis();
 			waitingMessage = true;
 			while (waitingMessage) {
 				yield();
@@ -232,7 +231,7 @@ string ofxDobot::getName(){
 			return "";
 		}
 		else {
-
+            timeMessage = ofGetElapsedTimeMillis();
 			waitingMessage = true;
 			while (waitingMessage) {
 				yield();
@@ -1225,18 +1224,14 @@ int ofxDobot::getQueuedCmdLeftSpace() {
 		int result = serial.writeBytes(message, 6);
 		if (result == OF_SERIAL_ERROR) {
 			ofLog(OF_LOG_ERROR, "serial error get queued left space");
+			queuedLeftSpace  = 0;
 
 		}
 		else {
+            timeMessage = ofGetElapsedTimeMillis();
 			waitingMessage = true;
-			int time = 0;
 			while (waitingMessage) {
 				yield();
-				time += ofGetElapsedTimeMillis();
-				if (time > TIMEOUT) {
-					waitingMessage = false;
-					ofLog(OF_LOG_ERROR, " queued left space timeout error");
-				}
 			}
 		}
 
@@ -1250,272 +1245,166 @@ int ofxDobot::getQueuedCmdLeftSpace() {
 
 }
 
+void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
+    
+    switch(idProtocol){
+        case DeviceSN:
+            serialNumber.clear();
+            for (int i = 0; i < params.size(); i++) {
+                const char c = params[i];
+                serialNumber.append(&c, 1);
+            }
+            waitingMessage = false;
+            break;
+            
+        case GetQueuedCmdLeftSpace:
+            ofLog(OF_LOG_VERBOSE, "GetQueuedCmdLeftSpace");
+            memcpy(&queuedLeftSpace, &params[0], 4);
+            ofLog(OF_LOG_VERBOSE, "queued left space = " + ofToString(queuedLeftSpace));
+            waitingMessage = false;
+            break;
+            
+        case DeviceName:
+            name.clear();
+            for (int i = 0; i < params.size(); i++) {
+                const char c = params[i];
+                name.append(&c, 1);
+            }
+            waitingMessage = false;
+            break;
+            
+        case GetPose:
+            
+            memcpy(&pose.x, &params[0], 4);
+            memcpy(&pose.y, &params[5], 4);
+            memcpy(&pose.z, &params[9], 4);
+            memcpy(&pose.r, &params[13], 4);
+            memcpy(pose.jointAngle, &params[17], 16);
+            
+            waitingMessage = false;
+            break;
+            
+            
+    }
+}
+
 void ofxDobot::threadedFunction() {
 
 
 	while (isThreadRunning()) {
 
-		sleep(30);
+        
+        
+        sleep(30);
 		if (connected) {
+            
+            if ( waitingMessage &&  ofGetElapsedTimeMillis() - timeMessage > cmdTimeout ){
+                
+                ofLog(OF_LOG_ERROR,"timeout message");
+                waitingMessage = false;
+                currentFase = Begin;
+                
+            }
+            
 			int numByte = serial.available();
 			if (numByte > 0) {
 
-				uint8_t message[128];
+				uint8_t message[numByte];
 				serial.readBytes(message,numByte);
-				if (message[0] == 0xAA && message[1] == 0xAA) {
-					uint8_t payloadLenght = message[2];
+                for ( int i=0; i < numByte ; i++ ){
+                    messages.insert(messages.end(), message[i]);
+                }
+                
+            }
+            
+            while ( messages.size() > 0 ){
+                uint8_t byte = messages.front();
 
-					uint8_t checksumArrived = message[payloadLenght + 3];
-					uint8_t id = message[3];
+                switch ( currentFase ){
+                    case Begin:{
+                        if ( byte == 0xAA){
+                            currentFase = Header;
+                        }
+                        else{
+                            
+                            currentFase = Begin;
+                            
+                        }
+                        break;
+                    }
 
-					uint8_t rw = message[4] & 0x01;
-					uint8_t isQueued = (message[4] >> 1) & 0x01;
+                    case Header:{
+                        if ( byte == 0xAA){
+                            currentFase = PayloadLenght;
+                        }
+                        else{
+                           
+                            currentFase = Begin;
+                            
+                        }
+                        break;
+                    }
+                    case PayloadLenght:{
+                        
+                        payloadLenght = byte;
+                        currentFase = cmdId;
+                        
+                        break;
+                        
+                    }
+                    case cmdId:{
+                        
+                        idProtocol = byte;
+                        currentFase = Ctrl;
+                        break;
+                    }
+                    case Ctrl:{
+                        ctrl = byte;
+                        rw = byte & 0x01;
+                        isQueued = (byte >> 1) & 0x01;
+                        currentFase = Params;
+                        params.clear();
+                        break;
+                    }
+                        
+                    case Params:{
+                        if ( params.size() < payloadLenght - 2){
+                            params.push_back(byte);
+                            if ( params.size() == payloadLenght -2){
+                                elaborateParams(idProtocol, params);
+                                currentFase = Checksum;
+                            }
+                        }
+                        break;
+                    }
+                    case Checksum:{
+                        
+                        checksum = byte;
+                        
+                        uint8_t verifiedChecksum = 0;
+                        verifiedChecksum += idProtocol;
+                        verifiedChecksum += ctrl;
+                        for ( int i=0; i < params.size(); i++)
+                            verifiedChecksum += params[i];
+                        
+                        verifiedChecksum += checksum;
+                        
+                        if ( verifiedChecksum != 0)
+                            ofLog(OF_LOG_ERROR,"checksum error");
+                        currentFase = Begin;
+                        break;
+                    }
+                    case Error:{
+                        ofLog(OF_LOG_ERROR,"error returning message");
+                        currentFase = Begin;
+                        break;
+                    }
+                        
+                }
+                messages.pop_front();
 
-					uint8_t checksum = 0;
-
-
-					for (int i = 0; i < payloadLenght+1; i++) {
-						checksum += message[3 + i];
-					}
-					if ( checksum == 0) {
-
-						ofLog(OF_LOG_VERBOSE,"message corrected");
-
-						if (id == DeviceSN) {
-							serialNumber.clear();
-							for (int i = 0; i < payloadLenght - 2; i++) {
-								const char c = message[5 + i];
-								serialNumber.append(&c, 1);
-							}
-
-							waitingMessage = false;
-
-						}
-						else if ( id == DeviceName ){
-							name.clear();
-							for (int i = 0; i < payloadLenght - 2; i++) {
-								const char c = message[5 + i];
-								name.append(&c, 1);
-							}
-
-							waitingMessage = false;
-
-						}
-
-						else if (id == GetPose) {
-
-							ofLog(OF_LOG_VERBOSE, "Get Pose");
-
-							memcpy(&pose.x, &message[5], 4);
-							memcpy(&pose.y, &message[9], 4);
-							memcpy(&pose.z, &message[13], 4);
-							memcpy(&pose.r, &message[17], 4);
-							memcpy(pose.jointAngle, &message[21], 16);
-							waitingMessage = false;
-						}
-
-						else if (id == ResetPose) {
-							ofLog(OF_LOG_VERBOSE, "Reset Pose");
-						}
-
-						else if (id == GetAlarms) {
-							ofLog(OF_LOG_VERBOSE, "Get Alarms State");
-							for (int i = 0; i < 16; i++) {
-								alarmsState[i] = message[5 + i];
-							}
-							waitingMessage = false;
-						}
-						else if (id == ClearAllAlarmsState) {
-							ofLog(OF_LOG_VERBOSE, "Clear alarms state");
-						}
-
-
-						else if (id == HomeParams) {
-							ofLog(OF_LOG_VERBOSE, "Home Params");
-							if (message[4] == 11) {
-								memcpy(&queuedCmdIndex, &message[5], 8);
-								ofLog(OF_LOG_VERBOSE, " queued index = " + ofToString(queuedCmdIndex));
-							}
-						}
-
-						else if (id == HomeCmd) {
-							ofLog(OF_LOG_VERBOSE, "Home Cmd");
-							memcpy(&queuedCmdIndex, &message[5], 8);
-							ofLog(OF_LOG_VERBOSE, " queued index = " + ofToString(queuedCmdIndex));
-							queuedLeftSpace = getQueuedCmdLeftSpace();
-
-						}
-						else if (id == SETGETJOGJointParams) {
-							if (rw) {
-								if (isQueued) {
-									memcpy(&queuedCmdIndex, &message[5], 8);
-									ofLog(OF_LOG_VERBOSE, "SETGETJOGJointParams arrived queued index = " + ofToString(queuedCmdIndex));
-								}
-								else {
-									ofLog(OF_LOG_VERBOSE, "SETGETJOGJointParams arrived");
-								}
-							}
-							else {
-								memcpy(jogJointParams.velocity, &message[5], 16);
-								memcpy(jogJointParams.acceleration, &message[21], 16);
-								ofLog(OF_LOG_VERBOSE, "get JOGjointparams");
-								waitingMessage = false;
-							}
-						}
-						else if (id == SETGETJOGCoordinateParams) {
-							if (rw) {
-								if (isQueued) {
-									memcpy(&queuedCmdIndex, &message[5], 8);
-									ofLog(OF_LOG_VERBOSE, "SETGETJOGCoordinateParams arrived queued index = " + ofToString(queuedCmdIndex));
-								}
-								else {
-									ofLog(OF_LOG_VERBOSE, "SETGETJOGCoordinateParams arrived" );
-								}
-							}
-							else {
-								memcpy(jogCoordinateParams.velocity, &message[5], 16);
-								memcpy(jogCoordinateParams.acceleration, &message[21], 16);
-								ofLog(OF_LOG_VERBOSE, "get JOGjointparams");
-								waitingMessage = false;
-							}
-						}
-						else if (id == SETGETJOGCommonParams) {
-							if (rw) {
-								if (isQueued) {
-									memcpy(&queuedCmdIndex, &message[5], 8);
-									ofLog(OF_LOG_VERBOSE, "SETGETJOGCommonParams arrived queued index = " + ofToString(queuedCmdIndex));
-								}
-								else {
-									ofLog(OF_LOG_VERBOSE, "SETGETJOGCommonParams arrived");
-								}
-							}
-							else {
-								memcpy(&jogCommonParams.velocityRatio, &message[5], 4);
-								memcpy(&jogCommonParams.accelerationRatio, &message[9], 4);
-								ofLog(OF_LOG_VERBOSE, "get JOGjointparams");
-								waitingMessage = false;
-							}
-
-						}
-
-
-						else if (id == SetJOGCmd) {
-
-							memcpy(&queuedCmdIndex, &message[5], 8);
-							ofLog(OF_LOG_VERBOSE, "set Jogl arrived queued index = " + ofToString(queuedCmdIndex));
-
-						}
-						else if (id == PTPJointParams) {
-							ofLog(OF_LOG_VERBOSE, "PTP JointParams");
-						}
-						else if (id == PTPCoordinateParams) {
-							ofLog(OF_LOG_VERBOSE, "PTP coordinate params");
-						}
-
-						else if (id == PTPJumpParams) {
-							ofLog(OF_LOG_VERBOSE, "PTP Jump params");
-						}
-						else if (id == PTPCommonParams) {
-							ofLog(OF_LOG_VERBOSE, "PTP common params");
-						}
-						else if (id == PTPCmd) {
-							ofLog(OF_LOG_VERBOSE, "PTPCmd");
-							memcpy(&queuedCmdIndex, &message[5], 8);
-							ofLog(OF_LOG_VERBOSE, "queued index = " + ofToString(queuedCmdIndex));
-							queuedLeftSpace = getQueuedCmdLeftSpace();
-						}
-
-						else if (id == SETGETCPParams) {
-
-							if (rw) {
-								ofLog(OF_LOG_VERBOSE, "SETCPParams");
-								if (isQueued) {
-									memcpy(&queuedCmdIndex, &message[5], 8);
-									ofLog(OF_LOG_VERBOSE, "Queued index = " + ofToString(queuedCmdIndex));
-								}
-
-							}
-							else {
-								ofLog(OF_LOG_VERBOSE, "GETCPParams");
-								memcpy(&cpParams.planAcc, &message[5], 4);
-								memcpy(&cpParams.junctionVel, &message[9], 4);
-								cpParams.realTimeTrack = message[17];
-								if ( cpParams.realTimeTrack )
-									memcpy(&cpParams.period, &message[13], 4);
-								else
-									memcpy(&cpParams.acc, &message[13], 4);
-
-								waitingMessage = false;
-							}
-
-						}
-						else if (id == SetCPCmd) {
-
-							memcpy(&queuedCmdIndex, &message[5], 8);
-							ofLog(OF_LOG_VERBOSE, "SetCPCmd Queued index = " + ofToString(queuedCmdIndex));
-
-
-						}
-						else if (id == SetWAITCmd) {
-							memcpy(&queuedCmdIndex, &message[5], 8);
-							ofLog(OF_LOG_VERBOSE, "SetWAITCmd Queued index = " + ofToString(queuedCmdIndex));
-						}
-
-						else if (id == AngleSensorStaticError) {
-							if (rw) {
-								ofLog(OF_LOG_VERBOSE, "Set Angle Static Error");
-							}
-							else {
-								ofLog(OF_LOG_VERBOSE, "Get Angle Static Error");
-								memcpy(&armAngleError.rearArmAngleError, &message[5], 4);
-								memcpy(&armAngleError.frontArmAngleError, &message[9], 4);
-								waitingMessage = false;
-							}
-						}
-
-
-						else if (id == SetQueuedCmdStartExec) {
-							ofLog(OF_LOG_VERBOSE, "SetQueuedCmdStartExec");
-						}
-						else if (id == SetQueuedCmdStopExec) {
-							ofLog(OF_LOG_VERBOSE, "SetQueuedCmdStopExec");
-						}
-						else if (id == SetQueuedCmdClear) {
-							ofLog(OF_LOG_VERBOSE, "SetQueuedCmdClear");
-						}
-						else if (id == GetQueuedCmdCurrentIndex) {
-							ofLog(OF_LOG_VERBOSE, "GetQueuedCmdCurrentIndex");
-							memcpy(&queuedCmdIndex, &message[5], 8);
-							ofLog(OF_LOG_VERBOSE, "queued index = " + ofToString(queuedCmdIndex));
-							waitingMessage = false;
-						}
-						else if (id == GetQueuedCmdLeftSpace) {
-							ofLog(OF_LOG_VERBOSE, "GetQueuedCmdLeftSpace");
-							memcpy(&queuedLeftSpace, &message[5], 4);
-							ofLog(OF_LOG_VERBOSE, "queued left space = " + ofToString(queuedLeftSpace));
-							waitingMessage = false;
-						}
-
-
-
-
-
-					}
-					else {
-						ofLog(OF_LOG_ERROR, "checksum error");
-						waitingMessage = false;
-					}
-				}
-				else {
-					ofLog(OF_LOG_ERROR, "non conformed message");
-					waitingMessage = false;
-				}
-
-			}
-			else {
-				//ofLog(OF_LOG_ERROR, "non returned message");
-				//waitingMessage = false;
-			}
-		}
+            }
+            
+        }
 	}
 }

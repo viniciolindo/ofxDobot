@@ -1,10 +1,10 @@
-﻿#pragma once
+#pragma once
 
 #include "ofMain.h"
 #include "ofxXmlSettings.h"
 
 
-#define TIMEOUT 1000
+#define TIMEOUT 5000
 
 typedef struct TagPose {
 
@@ -99,12 +99,14 @@ public:
 	bool setup(string serialName);
 
 	bool load(string fileName);
+	void restart();
 	void update();
 	void play();
 	void stop();
 	void clear();
 
-
+    void setCmdTimeout(uint32_t cmdTimeout);
+    
 	string getDeviceSN();
 	string getName();
 
@@ -116,6 +118,8 @@ public:
 
 	void setHomeCmd();
 	void setHomeParams(bool isQueue, HOMEParams params);
+    
+    
 
 	//void getHomeParams()
 
@@ -155,6 +159,7 @@ public:
 
 private:
 
+    void elaborateParams(int idProtocol, vector<uint8_t> params);
 
 	void threadedFunction();
 
@@ -190,6 +195,8 @@ private:
 	};
 
 
+    enum protocolFase { Begin, Header, PayloadLenght, cmdId, Ctrl, Params, Checksum, Error };
+    
 	string			noConnection;
 
 	uint8_t			*alarmsState;
@@ -199,14 +206,32 @@ private:
 	float 			lastTimeMessage;
 
 
-	int				time;
+	//int				time;
 
 	ofBuffer		buffer;
 	bool			isXml;
 
 	vector<string>	lines;
 
-
+    deque<uint8_t>  messages;
+    
+    bool            messageBegin;
+    int             currentFase;
+    
+    uint8_t         payloadLenght;
+    uint8_t         idProtocol;
+    uint8_t         ctrl;
+    bool            rw;
+    bool            isQueued;
+    
+    int             paramsState;
+    
+    int             cmdTimeout;
+    int             timeMessage;
+    uint8_t         checksum;
+    
+    vector<uint8_t>  params;
+    deque<uint8_t>  currentMessage;
 
 
 };
