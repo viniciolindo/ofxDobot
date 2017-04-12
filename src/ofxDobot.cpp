@@ -1295,7 +1295,7 @@ void ofxDobot::threadedFunction() {
 
         
         
-        sleep(30);
+        sleep(15);
 		if (connected) {
             
             if ( waitingMessage &&  ofGetElapsedTimeMillis() - timeMessage > cmdTimeout ){
