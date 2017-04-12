@@ -274,7 +274,7 @@ Pose ofxDobot::getPose() {
 
 		}
 		else {
-
+            timeMessage = ofGetElapsedTimeMillis();
 			waitingMessage = true;
 			while (waitingMessage) {
 				yield();
@@ -1276,10 +1276,10 @@ void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
         case GetPose:
             
             memcpy(&pose.x, &params[0], 4);
-            memcpy(&pose.y, &params[5], 4);
-            memcpy(&pose.z, &params[9], 4);
-            memcpy(&pose.r, &params[13], 4);
-            memcpy(pose.jointAngle, &params[17], 16);
+            memcpy(&pose.y, &params[4], 4);
+            memcpy(&pose.z, &params[8], 4);
+            memcpy(&pose.r, &params[12], 4);
+            memcpy(pose.jointAngle, &params[16], 16);
             
             waitingMessage = false;
             break;
