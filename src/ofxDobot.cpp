@@ -277,7 +277,6 @@ void ofxDobot::updatePose(){
         int result = serial.writeBytes(message, 6);
         if (result == OF_SERIAL_ERROR) {
             ofLog(OF_LOG_ERROR, "get Pose serial error");
-            return nullPose;
             
         }
         else {
