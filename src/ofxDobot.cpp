@@ -252,44 +252,48 @@ string ofxDobot::getName(){
 
 Pose ofxDobot::getPose() {
 
-	if (connected) {
-		uint8_t  message[6];
-		message[0] = 0xAA;
-		message[1] = 0xAA;
-		message[2] = 2;
-		message[3] = 10;
-		message[4] = 0;
-		message[4] |= 0 & 0x01;
-		message[4] |= (0 << 1) & 0x02;
-
-		uint8_t checksum = 0;
-		for (int i = 0; i < message[2]; i++) {
-			checksum += message[i + 3];
-		}
-		message[5] = 0 - checksum;
-		int result = serial.writeBytes(message, 6);
-		if (result == OF_SERIAL_ERROR) {
-			ofLog(OF_LOG_ERROR, "get Pose serial error");
-			return nullPose;
-
-		}
-		else {
-            timeMessage = ofGetElapsedTimeMillis();
-			waitingMessage = true;
-			while (waitingMessage) {
-				yield();
-			}
-
-			return pose;
-		}
-	}
-
-	else {
-		ofLog(OF_LOG_ERROR, noConnection);
-		return nullPose;
-	}
+    
+    return pose;
+	
 }
 
+void ofxDobot::updatePose(){
+    
+    if (connected && !waitingMessage ) {
+        uint8_t  message[6];
+        message[0] = 0xAA;
+        message[1] = 0xAA;
+        message[2] = 2;
+        message[3] = 10;
+        message[4] = 0;
+        message[4] |= 0 & 0x01;
+        message[4] |= (0 << 1) & 0x02;
+        
+        uint8_t checksum = 0;
+        for (int i = 0; i < message[2]; i++) {
+            checksum += message[i + 3];
+        }
+        message[5] = 0 - checksum;
+        int result = serial.writeBytes(message, 6);
+        if (result == OF_SERIAL_ERROR) {
+            ofLog(OF_LOG_ERROR, "get Pose serial error");
+            return nullPose;
+            
+        }
+        else {
+            timeMessage = ofGetElapsedTimeMillis();
+            waitingMessage = true;
+        }
+    }
+    
+    else {
+        if ( !connected ){
+            ofLog(OF_LOG_ERROR, noConnection);
+        }
+    }
+    
+    
+}
 
 
 
@@ -1280,7 +1284,6 @@ void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
             memcpy(&pose.z, &params[8], 4);
             memcpy(&pose.r, &params[12], 4);
             memcpy(pose.jointAngle, &params[16], 16);
-            
             waitingMessage = false;
             break;
             
@@ -1294,8 +1297,7 @@ void ofxDobot::threadedFunction() {
 	while (isThreadRunning()) {
 
         
-        
-        sleep(15);
+       // sleep(15);
 		if (connected) {
             
             if ( waitingMessage &&  ofGetElapsedTimeMillis() - timeMessage > cmdTimeout ){
@@ -1304,6 +1306,9 @@ void ofxDobot::threadedFunction() {
                 waitingMessage = false;
                 currentFase = Begin;
                 
+            }
+            else{
+                updatePose();
             }
             
 			int numByte = serial.available();

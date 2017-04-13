@@ -155,10 +155,13 @@ public:
 	void setAngleSensorStaticError(ArmAngleError armAngleError);
 	ArmAngleError getAngleSensorStaticError();
 
-
+    
+    
 
 private:
 
+    void updatePose();
+    
     void elaborateParams(int idProtocol, vector<uint8_t> params);
 
 	void threadedFunction();
@@ -170,7 +173,7 @@ private:
 	string serialName;
 	ofSerial serial;
 
-	Pose pose;
+
 
 	Pose nullPose;
 
@@ -233,5 +236,7 @@ private:
     vector<uint8_t>  params;
     deque<uint8_t>  currentMessage;
 
+    Pose pose;
+    
 
 };
