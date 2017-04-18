@@ -23,6 +23,8 @@ bool ofxDobot::setup(string serialName) {
 
     cmdTimeout = 1000;
     
+    automaticUpdatePose = false;
+    
 	return connected;
 
 }
@@ -255,6 +257,14 @@ Pose ofxDobot::getPose() {
     
     return pose;
 	
+}
+
+
+void ofxDobot::enableUpdatePose(bool enable){
+    
+    
+    automaticUpdatePose = enable;
+    
 }
 
 void ofxDobot::updatePose(){
@@ -1306,7 +1316,7 @@ void ofxDobot::threadedFunction() {
                 currentFase = Begin;
                 
             }
-            else{
+            else if ( automaticUpdatePose ) {
                 updatePose();
             }
             

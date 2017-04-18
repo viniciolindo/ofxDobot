@@ -112,6 +112,7 @@ public:
 
 	void resetPose(uint8_t manual, float rearArmAngle, float frontArmAngle);
 	Pose getPose();
+    void enableUpdatePose(bool enable);
 
 	void getAlarmsState(uint8_t alarmsState[16]);
 	void clearAllAlarmsState();
@@ -237,6 +238,7 @@ private:
     deque<uint8_t>  currentMessage;
 
     Pose pose;
+    bool            automaticUpdatePose;
     
 
 };
