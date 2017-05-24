@@ -7,6 +7,12 @@ ofxDobot::ofxDobot(){
 
 }
 
+ofxDobot::~ofxDobot(){
+    
+    stopThread();
+    
+}
+
 bool ofxDobot::setup(string serialName) {
 
 	this->serialName = serialName;

@@ -96,6 +96,7 @@ class ofxDobot : public ofThread {
 public:
 
 	ofxDobot();
+    ~ofxDobot();
 	bool setup(string serialName);
 
 	bool load(string fileName);
