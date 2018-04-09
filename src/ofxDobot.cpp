@@ -930,6 +930,83 @@ void ofxDobot::setCPCmd(CPCmd cmd) {
 
 }
 
+void ofxDobot::setARCParams(bool isQueue, ARCParams params){
+
+    if (connected) {
+        uint8_t  message[22];
+        message[0] = 0xAA;
+        message[1] = 0xAA;
+        message[2] = 18;
+        message[3] = SetGetARCParams;
+        message[4] = 0;
+        message[4] |= 1 & 0x01;
+        message[4] |= (isQueue << 1) & 0x02;
+        
+        memcpy(&message[5], &params.xyzVelocity, 4);
+        memcpy(&message[9], &params.rVelocity, 4);
+        memcpy(&message[13], &params.xyzAcceleration, 4);
+        memcpy(&message[17], &params.rAcceleration, 4);
+        
+       
+        
+        uint8_t checksum = 0;
+        for (int i = 0; i < message[2]; i++) {
+            checksum += message[i + 3];
+        }
+        message[21] = 0 - checksum;
+        int result = serial.writeBytes(message, 22);
+        if (result == OF_SERIAL_ERROR) {
+            ofLog(OF_LOG_ERROR, "serial error setARCParams");
+        }
+    }
+    
+    else {
+        ofLog(OF_LOG_ERROR, noConnection);
+    }
+
+    
+}
+
+void ofxDobot::setARCCmd(ARCCmd cmd){
+    
+    if (connected) {
+        uint8_t  message[38];
+        message[0] = 0xAA;
+        message[1] = 0xAA;
+        message[2] = 34;
+        message[3] = SetGetARCCmd;
+        message[4] = 0;
+        message[4] |= 1 & 0x01;
+        message[4] |= (1 << 1) & 0x02;
+        
+
+        memcpy(&message[5], &cmd.cirPoint.x, 4);
+        memcpy(&message[9], &cmd.cirPoint.y, 4);
+        memcpy(&message[13], &cmd.cirPoint.z, 4);
+        memcpy(&message[17], &cmd.cirPoint.r, 4);
+        memcpy(&message[21], &cmd.toPoint.x, 4);
+        memcpy(&message[25], &cmd.toPoint.y, 4);
+        memcpy(&message[29], &cmd.toPoint.z, 4);
+        memcpy(&message[33], &cmd.toPoint.r, 4);
+        
+        uint8_t checksum = 0;
+        for (int i = 0; i < message[2]; i++) {
+            checksum += message[i + 3];
+        }
+        message[37] = 0 - checksum;
+        int result = serial.writeBytes(message, 38);
+        if (result == OF_SERIAL_ERROR) {
+            ofLog(OF_LOG_ERROR, "serial error setCPCmd");
+        }
+    }
+    
+    else {
+        ofLog(OF_LOG_ERROR, noConnection);
+    }
+
+    
+}
+
 void ofxDobot::setHomeParams(bool isQueue, HOMEParams params) {
 
 	if (connected) {

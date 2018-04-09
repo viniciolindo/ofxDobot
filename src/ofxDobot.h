@@ -66,6 +66,34 @@ typedef struct tagCPCmd {
 	};
 } CPCmd;
 
+typedef struct tagARCParams {
+    float xyzVelocity; // Circular motion of xyz axis speed
+    float rVelocity; // EndEffector rotation speed of circular motion
+    float xyzAcceleration; // Circular motion xyz axis acceleration
+    float rAcceleration; // EndEffector rotation acceleration of circular motion
+} ARCParams;
+
+
+typedef struct tagARCCmd {
+    struct{
+        float x;
+        float y;
+        float z;
+        float r;
+    } cirPoint;  //Any circular point
+    
+    struct {
+        float x;
+        float y;
+        float z;
+        float r;
+    }
+    toPoint;  //Circular ending point
+    
+} ARCCmd;
+
+
+
 typedef struct tagWAITCmd {
 	uint32_t timeout; //Unit ms
 } WAITCmd;
@@ -134,6 +162,10 @@ public:
 	void setCPParams(bool isQueue, CPParams params);
 	CPParams getCPParams();
 	void setCPCmd(CPCmd cmd);
+    
+    void setARCParams(bool isQueue, ARCParams params);
+    ARCParams getARCParams();
+    void setARCCmd(ARCCmd cmd);
 
 	void setJOGJointParams(bool isQueue, JOGJointParams params);
 	JOGJointParams getJOGJointParams();
@@ -194,7 +226,7 @@ private:
 
 	enum protocolFunction{ DeviceSN, DeviceName, DeviceVersion, GetPose = 10, ResetPose, GetAlarms = 20, ClearAllAlarmsState, HomeParams = 30, HomeCmd, HHTTrigMode = 40, HHTrigOutputEnabled,
 		HHTTrigOutput, ArmOrientation = 50, EndEffectorParams = 60, EndEffectorLaser,  EndEffectorSuctionCup, EndEffectorGripper, SETGETJOGJointParams = 70, SETGETJOGCoordinateParams, SETGETJOGCommonParams , SetJOGCmd,
-		PTPJointParams = 80, PTPCoordinateParams, PTPJumpParams, PTPCommonParams, PTPCmd, SETGETCPParams = 90, SetCPCmd, SetCPLECmd, ARCParams = 100, ARCCmd, SetWAITCmd = 110, TRIGCmd = 120, IOMultiplexing = 130,
+		PTPJointParams = 80, PTPCoordinateParams, PTPJumpParams, PTPCommonParams, PTPCmd, SETGETCPParams = 90, SetCPCmd, SetCPLECmd, SetGetARCParams = 100, SetGetARCCmd, SetWAITCmd = 110, TRIGCmd = 120, IOMultiplexing = 130,
 		IODO, IOPWM, GetIODI, GetIOADC, SetEMotor, AngleSensorStaticError = 140,  WIFIConfigMode = 150, WIFISSID, WIFIPassword, WIFIIPAddress, WIFINetmask, WIFIGateway, WIFIDNS, GetWIFIConnectStatus, SetQueuedCmdStartExec = 240,
 		SetQueuedCmdStopExec, SetQueueCmdForceStopExec, SetQueuedCmdStartDownload, SetQueuedCmdStopDownload, SetQueuedCmdClear, GetQueuedCmdCurrentIndex, GetQueuedCmdLeftSpace
 	};
