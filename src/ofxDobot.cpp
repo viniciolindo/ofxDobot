@@ -86,10 +86,11 @@ void ofxDobot::loadSVG(string fileName){
     currentCommand = 0;
     
     for ( int i=0; i < svg.getNumPath(); i++ ){
-        ofPolyline polyline = svg.getPathAt(i).getOutline()[0];
-        polyline.simplify();
+        ofPolyline *polyline = new ofPolyline();
+        *polyline = svg.getPathAt(i).getOutline()[0];
+        polyline->simplify();
         polylines.push_back(polyline);
-        cout << "num line of " << i << " polyline = " << polyline.size() << endl;
+        cout << "num line of " << i << " polyline = " << polyline->size() << endl;
     }
     
    
@@ -144,11 +145,11 @@ void ofxDobot::updateSVG(){
     if ( getQueuedCmdLeftSpace() >= 3 ){
        
         if ( currentPath < polylines.size() ){
-            if ( currentCommand < polylines[currentPath].size()){
+            if ( currentCommand < polylines[currentPath]->size()){
                         CPCmd cmd;
                         cmd.cpMode = 1;
                 
-                        ofPoint to = convertToDobotCoordinate(polylines[currentPath].getVertices()[currentCommand]);
+                        ofPoint to = convertToDobotCoordinate(polylines[currentPath]->getVertices()[currentCommand]);
                         cmd.x = to.x;
                         cmd.y = to.y;
                         cmd.z = -56;

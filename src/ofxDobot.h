@@ -294,7 +294,7 @@ private:
     Pose pose;
     bool            automaticUpdatePose;
     
-    vector<ofPolyline>      polylines;
+    vector<ofPolyline*>      polylines;
     
 
 };
