@@ -88,7 +88,7 @@ void ofxDobot::loadSVG(string fileName){
     polyline = svg.getPathAt(0).getOutline()[0];
     polyline.simplify();
     
-    cout << polyline.size() << endl;
+    cout << "num line of polyline = " << polyline.size() << endl;
     
 }
 
