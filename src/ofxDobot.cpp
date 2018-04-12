@@ -85,10 +85,14 @@ void ofxDobot::loadSVG(string fileName){
     currentPath = 0;
     currentCommand = 0;
     
-    polyline = svg.getPathAt(0).getOutline()[0];
-    polyline.simplify();
+    for ( int i=0; i < svg.getNumPath(); i++ ){
+        ofPolyline polyline = svg.getPathAt(i).getOutline()[0];
+        polyline.simplify();
+        polylines.push_back(polyline);
+        cout << "num line of " << i << " polyline = " << polyline.size() << endl;
+    }
     
-    cout << "num line of polyline = " << polyline.size() << endl;
+   
     
 }
 
@@ -100,9 +104,9 @@ void ofxDobot::drawSVG(){
 ofPoint ofxDobot::convertToDobotCoordinate(ofPoint p){
     
     ofPoint converted;
-    
-    converted.y = DOBOT_YMIN +  ( p.x / SVG_WIDTH )  * ( DOBOT_YMAX - DOBOT_YMIN );
-    converted.x = DOBOT_XMIN + ( p.y / SVG_HEIGHT ) * ( DOBOT_XMAX - DOBOT_XMIN );
+  
+    converted.y = DOBOT_YMIN +  ( p.x /   svg.getWidth() )  * ( DOBOT_YMAX - DOBOT_YMIN );
+    converted.x = DOBOT_XMIN + ( p.y / svg.getHeight() ) * ( DOBOT_XMAX - DOBOT_XMIN );
     
     return converted;
     
@@ -137,36 +141,37 @@ void ofxDobot::clear() {
 
 void ofxDobot::updateSVG(){
     
-    
-if ( getQueuedCmdLeftSpace() >= 3 ){
-   
-    if ( currentCommand < polyline.size()){
-                CPCmd cmd;
-                cmd.cpMode = 1;
-        
-                ofPoint to = convertToDobotCoordinate(polyline.getVertices()[currentCommand]);
-                cmd.x = to.x;
-                cmd.y = to.y;
-                cmd.z = -56;
-                cout << "moveTo" << endl;
-                setCPCmd(cmd);
-                currentCommand++;
-        
+    if ( getQueuedCmdLeftSpace() >= 3 ){
+       
+        if ( currentPath < polylines.size() ){
+            if ( currentCommand < polylines[currentPath].size()){
+                        CPCmd cmd;
+                        cmd.cpMode = 1;
+                
+                        ofPoint to = convertToDobotCoordinate(polylines[currentPath].getVertices()[currentCommand]);
+                        cmd.x = to.x;
+                        cmd.y = to.y;
+                        cmd.z = -56;
+                        //cout << "moveTo" << endl;
+                        setCPCmd(cmd);
+                        currentCommand++;
+                
+            }
+            
+            else{
+                cout << currentPath << " ended" << endl;
+                currentPath++;
+                currentCommand = 0;
+                
+            }
         }
-    
         else{
+            ofLog(OF_LOG_VERBOSE, "svg finished");
             
-            currentPath++;
             
         }
-    
-    
-    }
-    else{
-        ofLog(OF_LOG_VERBOSE, "svg finished");
-        
-    }
 
+    }
     
 }
 

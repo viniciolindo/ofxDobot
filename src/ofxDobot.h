@@ -8,9 +8,6 @@
 
 #define TIMEOUT 5000
 
-#define SVG_WIDTH 1600
-#define SVG_HEIGHT 800
-
 #define DOBOT_XMIN 201
 #define DOBOT_XMAX 315
 
@@ -297,7 +294,7 @@ private:
     Pose pose;
     bool            automaticUpdatePose;
     
-    ofPolyline      polyline;
+    vector<ofPolyline>      polylines;
     
 
 };
