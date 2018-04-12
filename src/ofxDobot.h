@@ -3,8 +3,19 @@
 #include "ofMain.h"
 #include "ofxXmlSettings.h"
 
+#include  "ofxSvg.h"
+
 
 #define TIMEOUT 5000
+
+#define SVG_WIDTH 1600
+#define SVG_HEIGHT 800
+
+#define DOBOT_XMIN 201
+#define DOBOT_XMAX 315
+
+#define DOBOT_YMIN -150
+#define DOBOT_YMAX 150
 
 typedef struct TagPose {
 
@@ -128,6 +139,12 @@ public:
 	bool setup(string serialName);
 
 	bool load(string fileName);
+    
+    void loadSVG(string fileName);
+    void updateSVG();
+    void drawSVG();
+    void setAutoZ();
+    
 	void restart();
 	void update();
 	void play();
@@ -189,6 +206,7 @@ public:
 	void setAngleSensorStaticError(ArmAngleError armAngleError);
 	ArmAngleError getAngleSensorStaticError();
 
+    ofPoint convertToDobotCoordinate(ofPoint p);
     
     
 
@@ -239,6 +257,8 @@ private:
 	uint8_t			*alarmsState;
 
 	ofxXmlSettings	timeline;
+    ofxSVG          svg;
+    
 	int 			rowIndex;
 	float 			lastTimeMessage;
 
@@ -247,6 +267,10 @@ private:
 
 	ofBuffer		buffer;
 	bool			isXml;
+    
+    bool            isSVG;
+    int             currentPath;
+    int             currentCommand;
 
 	vector<string>	lines;
 
@@ -272,6 +296,8 @@ private:
 
     Pose pose;
     bool            automaticUpdatePose;
+    
+    ofPolyline      polyline;
     
 
 };

@@ -70,20 +70,50 @@ bool ofxDobot::load(string fileName) {
 		else{
 			ofLog(OF_LOG_ERROR,fileName +" extension not compatible");
 		}
-}
-else{
-	ofLog(OF_LOG_ERROR,fileName +" don't exist");
+    }
+    else{
+        ofLog(OF_LOG_ERROR,fileName +" don't exist");
+    }
+
+    return exist;
 
 }
 
+void ofxDobot::loadSVG(string fileName){
+    
+    svg.load(fileName);
+    currentPath = 0;
+    currentCommand = 0;
+    
+    polyline = svg.getPathAt(0).getOutline()[0];
+    polyline.simplify();
+    
+    cout << polyline.size() << endl;
+    
+}
 
-return exist;
+void ofxDobot::drawSVG(){
+    
+    svg.draw();
+}
 
+ofPoint ofxDobot::convertToDobotCoordinate(ofPoint p){
+    
+    ofPoint converted;
+    
+    converted.y = DOBOT_YMIN +  ( p.x / SVG_WIDTH )  * ( DOBOT_YMAX - DOBOT_YMIN );
+    converted.x = DOBOT_XMIN + ( p.y / SVG_HEIGHT ) * ( DOBOT_XMAX - DOBOT_XMIN );
+    
+    return converted;
+    
+    
 }
 
 void ofxDobot::restart(){
 
 	rowIndex = 0;
+    currentPath = 0;
+    currentCommand = 0;
 
 }
 
@@ -104,6 +134,42 @@ void ofxDobot::clear() {
 	setQueuedCmdClear();
 
 }
+
+void ofxDobot::updateSVG(){
+    
+    
+if ( getQueuedCmdLeftSpace() >= 3 ){
+   
+    if ( currentCommand < polyline.size()){
+                CPCmd cmd;
+                cmd.cpMode = 1;
+        
+                ofPoint to = convertToDobotCoordinate(polyline.getVertices()[currentCommand]);
+                cmd.x = to.x;
+                cmd.y = to.y;
+                cmd.z = -56;
+                cout << "moveTo" << endl;
+                setCPCmd(cmd);
+                currentCommand++;
+        
+        }
+    
+        else{
+            
+            currentPath++;
+            
+        }
+    
+    
+    }
+    else{
+        ofLog(OF_LOG_VERBOSE, "svg finished");
+        
+    }
+
+    
+}
+
 
 void ofxDobot::update(){
 
@@ -180,6 +246,8 @@ void ofxDobot::update(){
         }
     }
 }
+
+
 
 
 
@@ -996,7 +1064,7 @@ void ofxDobot::setARCCmd(ARCCmd cmd){
         message[37] = 0 - checksum;
         int result = serial.writeBytes(message, 38);
         if (result == OF_SERIAL_ERROR) {
-            ofLog(OF_LOG_ERROR, "serial error setCPCmd");
+            ofLog(OF_LOG_ERROR, "serial error setARCCmd");
         }
     }
     
@@ -1354,7 +1422,7 @@ void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
             break;
             
         case GetQueuedCmdLeftSpace:
-            ofLog(OF_LOG_VERBOSE, "GetQueuedCmdLeftSpace");
+            //ofLog(OF_LOG_VERBOSE, "GetQueuedCmdLeftSpace");
             memcpy(&queuedLeftSpace, &params[0], 4);
             ofLog(OF_LOG_VERBOSE, "queued left space = " + ofToString(queuedLeftSpace));
             waitingMessage = false;
@@ -1379,7 +1447,9 @@ void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
             waitingMessage = false;
             break;
             
-            
+        default:
+            waitingMessage = false;
+            break;
     }
 }
 
@@ -1389,7 +1459,7 @@ void ofxDobot::threadedFunction() {
 	while (isThreadRunning()) {
 
         
-       // sleep(15);
+        //sleep(30);
 		if (connected) {
             
             if ( waitingMessage &&  ofGetElapsedTimeMillis() - timeMessage > cmdTimeout ){
