@@ -146,16 +146,16 @@ void ofxDobot::updateSVG(){
        
         if ( currentPath < polylines.size() ){
             if ( currentCommand < polylines[currentPath]->size()){
-                        CPCmd cmd;
-                        cmd.cpMode = 1;
-                
-                        ofPoint to = convertToDobotCoordinate(polylines[currentPath]->getVertices()[currentCommand]);
-                        cmd.x = to.x;
-                        cmd.y = to.y;
-                        cmd.z = -56;
-                        //cout << "moveTo" << endl;
-                        setCPCmd(cmd);
-                        currentCommand++;
+                CPCmd cmd;
+                cmd.cpMode = 1;
+        
+                ofPoint to = convertToDobotCoordinate(polylines[currentPath]->getVertices()[currentCommand]);
+                cmd.x = to.x;
+                cmd.y = to.y;
+                cmd.z = -56;
+                //cout << "moveTo" << endl;
+                setCPCmd(cmd);
+                currentCommand++;
                 
             }
             
