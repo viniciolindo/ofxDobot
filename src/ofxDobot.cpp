@@ -21,15 +21,23 @@ bool ofxDobot::setup(string serialName) {
 
 	waitingMessage = false;
 
-	startThread();
+	serial.flush();
 
 	queuedCmdIndex = 0;
 	queuedLeftSpace = 32;
-	lastTimeMessage = 0;
-
+	timeMessage = ofGetElapsedTimeMillis();
+	currentFase = Begin;
     cmdTimeout = 1000;
     
     automaticUpdatePose = false;
+    
+    typeFileOpened = NONE;
+    
+    autoZ = 0;
+    
+    startThread();
+
+	isStopped = true;
     
 	return connected;
 
@@ -46,7 +54,7 @@ bool ofxDobot::load(string fileName) {
 	if ( exist ){
 		if (file.getExtension() == "xml") {
 			file.close();
-			isXml = true;
+            typeFileOpened = XML;
 			if (timeline.loadFile(ofToDataPath(fileName))) {
 				timeline.pushTag("root");
 				rowIndex = 0;
@@ -60,14 +68,19 @@ bool ofxDobot::load(string fileName) {
 		else if (file.getExtension() == "txt") {
 
 			rowIndex = 0;
-			isXml = false;
+            typeFileOpened = TXT;
 
 			buffer = file.readToBuffer();
 			string textFile = buffer.getText();
 			lines = ofSplitString(textFile, "\n");
 
 		}
+        else if ( file.getExtension() == "svg"){
+            typeFileOpened = SVG;
+            loadSVG(fileName);
+        }
 		else{
+            typeFileOpened = NONE;
 			ofLog(OF_LOG_ERROR,fileName +" extension not compatible");
 		}
     }
@@ -79,18 +92,57 @@ bool ofxDobot::load(string fileName) {
 
 }
 
+void ofxDobot::setPolylines(vector<ofPolyline *> _polylines, int w, int h){
+    
+    
+    currentPath = 0;
+    currentCommand = 0;
+    totalNumPoints = 0;
+    currentPoint = 0;
+    polylines = _polylines;
+    typeFileOpened = SVG;
+    
+    for ( int i=0; i < polylines.size(); i++){
+        totalNumPoints += polylines[i]->size();
+    }
+    
+    widthDrawing = w;
+    heightDrawing = h;
+    
+	CPCmd cmd;
+	cmd.cpMode = 1;
+
+	ofPoint to = convertToDobotCoordinate(polylines[0]->getVertices()[0]);
+	cmd.x = to.x;
+	cmd.y = to.y;
+	cmd.z = 45;
+
+	setCPCmd(cmd);
+}
+
 void ofxDobot::loadSVG(string fileName){
     
     svg.load(fileName);
     currentPath = 0;
     currentCommand = 0;
+    totalNumPoints = 0;
+    currentPoint = 0;
+	printingCompletation = 0;
+    cout << svg.getWidth() << " " << svg.getHeight() << endl;
+    
+    widthDrawing = svg.getWidth();
+    heightDrawing = svg.getHeight();
     
     for ( int i=0; i < svg.getNumPath(); i++ ){
         ofPolyline *polyline = new ofPolyline();
+        //ofPath path= ;
+       // path.scale(DOBOT_XMAX-DOBOT_XMIN, DOBOT_XMAX-DOBOT_XMIN);
+        //path.translate(ofPoint(100,100));
         *polyline = svg.getPathAt(i).getOutline()[0];
         polyline->simplify();
         polylines.push_back(polyline);
         cout << "num line of " << i << " polyline = " << polyline->size() << endl;
+        totalNumPoints+=polyline->size();
     }
     
    
@@ -106,8 +158,8 @@ ofPoint ofxDobot::convertToDobotCoordinate(ofPoint p){
     
     ofPoint converted;
   
-    converted.y = DOBOT_YMIN +  ( p.x /   svg.getWidth() )  * ( DOBOT_YMAX - DOBOT_YMIN );
-    converted.x = DOBOT_XMIN + ( p.y / svg.getHeight() ) * ( DOBOT_XMAX - DOBOT_XMIN );
+    converted.y = - (DOBOT_XMAX- DOBOT_XMIN ) / 2 +  ( p.x / widthDrawing )  * ( DOBOT_XMAX - DOBOT_XMIN );
+    converted.x = DOBOT_XMIN + ( p.y / heightDrawing ) * ( DOBOT_XMAX - DOBOT_XMIN );
     
     return converted;
     
@@ -125,63 +177,100 @@ void ofxDobot::restart(){
 void ofxDobot::play() {
 
 	setQueuedCmdStartExec();
+	isStopped = false;
 
 }
 
 void ofxDobot::stop() {
 
 	setQueuedCmdStopExec();
+	isStopped = true;
 
 }
 
 void ofxDobot::clear() {
 
+	//clearAllAlarmsState();
+
 	setQueuedCmdClear();
+	isStopped = true;
+	typeFileOpened = NONE;
+
+	rowIndex = 0;
+	currentPath = 0;
+	currentCommand = 0;
+	currentPoint = 0;
+	printingCompletation = 0;
 
 }
 
-void ofxDobot::updateSVG(){
+bool ofxDobot::updateSVG(){
     
-    if ( getQueuedCmdLeftSpace() >= 3 ){
-       
-        if ( currentPath < polylines.size() ){
+    
+    bool isPrinting = true;
+
+    if ( currentPath < polylines.size() ){
+        
+        if ( getQueuedCmdLeftSpace() > 0 ){
             if ( currentCommand < polylines[currentPath]->size()){
+
+
                 CPCmd cmd;
                 cmd.cpMode = 1;
         
                 ofPoint to = convertToDobotCoordinate(polylines[currentPath]->getVertices()[currentCommand]);
                 cmd.x = to.x;
                 cmd.y = to.y;
-                cmd.z = -56;
+                cmd.z = autoZ;
                 //cout << "moveTo" << endl;
                 setCPCmd(cmd);
                 currentCommand++;
-                
+                currentPoint++;
+
+				int printPercentage = printingCompletation;
+				printingCompletation = (float)currentPoint / totalNumPoints * 100;
+				if (printPercentage != (int)printingCompletation) {
+					ofLog(OF_LOG_NOTICE, name + " " + ofToString(printPercentage) + "% drawing");
+				}
             }
             
             else{
-                cout << currentPath << " ended" << endl;
+                
                 currentPath++;
                 currentCommand = 0;
                 
             }
         }
-        else{
-            ofLog(OF_LOG_VERBOSE, "svg finished");
-            
+       
+    }
+    else{
+        if ( getQueuedCmdLeftSpace() >= DOBOT_QUEUE_LENGTH ){
+            ofLog(OF_LOG_NOTICE, "svg finished");
+			int lastVertices = polylines[polylines.size() - 1]->getVertices().size() - 1;
+			CPCmd cmd;
+			cmd.cpMode = 1;
+			ofPoint to = convertToDobotCoordinate(polylines[polylines.size()-1]->getVertices()[lastVertices]);
+			cmd.x = to.x;
+			cmd.y = to.y;
+			cmd.z = 45;
+
+			setCPCmd(cmd);
+            isPrinting = false;
+            typeFileOpened = NONE;
             
         }
-
+        
     }
-    
+    return isPrinting;
 }
 
-
-void ofxDobot::update(){
-
-    if ( getQueuedCmdLeftSpace() >= 3 ){
-        if ( isXml && 	timeline.tagExists("row" + ofToString(rowIndex))){
-
+bool ofxDobot::updateXML(){
+    
+    bool isRunning = true;
+    if (timeline.tagExists("row" + ofToString(rowIndex))){
+        
+         if ( getQueuedCmdLeftSpace() >= 3 ){
+        
             if (timeline.tagExists("vel" + ofToString(rowIndex))) {
                 timeline.pushTag("vel" + ofToString(rowIndex));
                 float vel = timeline.getValue("vel", 0);
@@ -190,8 +279,8 @@ void ofxDobot::update(){
                 timeline.popTag();
                 ofLog(OF_LOG_VERBOSE, "vel " + ofToString(rowIndex));
             }
-
-
+            
+            
             timeline.pushTag("row" + ofToString(rowIndex));
             ofLog(OF_LOG_VERBOSE, "row " + ofToString(rowIndex));
             int type = timeline.getValue("item_0", 0);
@@ -199,34 +288,47 @@ void ofxDobot::update(){
             double y = timeline.getValue("item_3", 0);
             double z = timeline.getValue("item_4", 0);
             double r = timeline.getValue("item_5", 0);
-            double timePause = timeline.getValue("item_6", 0);
-
+            double timePause = timeline.getValue("item_10", 0);
+            
             
             setPTPCmd((ptpMode)type, x, y, z, r);
-
-
-
+            
+            
+            
             if (timePause > 0) {
                 WAITCmd waitCmd;
                 waitCmd.timeout = timePause * 1000;
                 
                 setWAITCmd(waitCmd);
             }
-
+            
+			ofLog(OF_LOG_NOTICE, ofToString(rowIndex) + "num row");
             rowIndex++;
             timeline.popTag();
-            lastTimeMessage = ofGetElapsedTimef();
-        }
-        else if (!isXml && rowIndex < lines.size() ) {
+         }
+    }
+    else if ( getQueuedCmdLeftSpace() >=  DOBOT_QUEUE_LENGTH ){
+        isRunning = false;
+        typeFileOpened = NONE;
+    }
+   
+    return isRunning;
+}
 
+bool ofxDobot::updateText(){
+    
+    bool isRunning = true;
+    if ( rowIndex < lines.size() ) {
+        
+        if ( getQueuedCmdLeftSpace() > 0 ){
             vector<string> splittedLine = ofSplitString(lines[rowIndex], " ");
-
+            
             if (splittedLine[0] == "PTPCommonParams") {
                 if (splittedLine.size() >= 4)
                     setPTPCommonParams(ofToBool(splittedLine[1]), ofToFloat(splittedLine[2]), ofToFloat(splittedLine[3]));
                 else
                     ofLog(OF_LOG_ERROR, "PTPCommonParams error line " + ofToString(rowIndex));
-
+                
             }
             else if (splittedLine[0] == "PTPCmd") {
                 if (splittedLine.size() >= 6)
@@ -243,14 +345,43 @@ void ofxDobot::update(){
                 else {
                     ofLog(OF_LOG_ERROR, "WAITCmd error line " + ofToString(rowIndex));
                 }
-
-
+                
+                
             }
             rowIndex++;
             ofLog(OF_LOG_VERBOSE, "line  " + ofToString(rowIndex));
-            lastTimeMessage = ofGetElapsedTimef();
         }
     }
+    else{
+        ofLog(OF_LOG_NOTICE,"text file finished");
+        if ( getQueuedCmdLeftSpace() > DOBOT_QUEUE_LENGTH ){
+            isRunning = false;
+            typeFileOpened = NONE;
+        }
+    }
+    return isRunning;
+
+}
+
+
+
+bool ofxDobot::update(){
+
+    bool isRunning = false;
+	if (!isStopped) {
+		if (typeFileOpened == XML) {
+			isRunning = updateXML();
+		}
+		else if (typeFileOpened == TXT) {
+			isRunning = updateText();
+		}
+		else if (typeFileOpened == SVG) {
+			isRunning = updateSVG();
+		}
+	}
+
+    return isRunning;
+    
 }
 
 
@@ -334,9 +465,45 @@ string ofxDobot::getName(){
 
 Pose ofxDobot::getPose() {
 
-    
+	if (connected && !waitingMessage) {
+		uint8_t  message[6];
+		message[0] = 0xAA;
+		message[1] = 0xAA;
+		message[2] = 2;
+		message[3] = 10;
+		message[4] = 0;
+		message[4] |= 0 & 0x01;
+		message[4] |= (0 << 1) & 0x02;
+
+		uint8_t checksum = 0;
+		for (int i = 0; i < message[2]; i++) {
+			checksum += message[i + 3];
+		}
+		message[5] = 0 - checksum;
+		int result = serial.writeBytes(message, 6);
+		if (result == OF_SERIAL_ERROR) {
+			ofLog(OF_LOG_ERROR, "get Pose serial error");
+
+		}
+		else {
+			timeMessage = ofGetElapsedTimeMillis();
+			waitingMessage = true;
+			while (waitingMessage) {
+				yield();
+			}
+
+
+		}
+
+		return pose;
+	}
+
+	else {
+		if (!connected) {
+			ofLog(OF_LOG_ERROR, noConnection);
+		}
+	}
     return pose;
-	
 }
 
 
@@ -372,6 +539,9 @@ void ofxDobot::updatePose(){
         else {
             timeMessage = ofGetElapsedTimeMillis();
             waitingMessage = true;
+           
+            //return pose;
+            
         }
     }
     
@@ -422,6 +592,12 @@ void ofxDobot::resetPose(uint8_t manual, float rearArmAngle, float frontArmAngle
 
 
 
+}
+
+void ofxDobot::setAutoZ(){
+    
+    autoZ = getPose().z;
+    cout << autoZ << endl;
 }
 
 
@@ -1269,6 +1445,8 @@ void ofxDobot::setQueuedCmdStartExec() {
 		if (result == OF_SERIAL_ERROR) {
 			ofLog(OF_LOG_ERROR, "serial error setQueueCmdStartExec");
 		}
+		else
+			timeMessage = ofGetElapsedTimeMillis();
 
 	}
 
@@ -1327,6 +1505,10 @@ void ofxDobot::setQueuedCmdClear() {
 		if (result == OF_SERIAL_ERROR) {
 			ofLog(OF_LOG_ERROR, "serial error setQueueCmdClear");
 		}
+		else {
+			timeMessage = ofGetElapsedTimeMillis();
+			waitingMessage = false;
+		}
 
 	}
 
@@ -1358,6 +1540,7 @@ int ofxDobot::getQueuedCmdCurrentIndex() {
 
 		}
 		else {
+			timeMessage = ofGetElapsedTimeMillis();
 			waitingMessage = true;
 			while (waitingMessage) {
 				yield();
@@ -1399,7 +1582,7 @@ int ofxDobot::getQueuedCmdLeftSpace() {
 		}
 		else {
             timeMessage = ofGetElapsedTimeMillis();
-			waitingMessage = true;
+			waitingMessage = false;
 			while (waitingMessage) {
 				yield();
 			}
@@ -1424,15 +1607,15 @@ void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
                 const char c = params[i];
                 serialNumber.append(&c, 1);
             }
-            waitingMessage = false;
-            break;
+			waitingMessage = false;
+			break;
             
         case GetQueuedCmdLeftSpace:
             //ofLog(OF_LOG_VERBOSE, "GetQueuedCmdLeftSpace");
             memcpy(&queuedLeftSpace, &params[0], 4);
             ofLog(OF_LOG_VERBOSE, "queued left space = " + ofToString(queuedLeftSpace));
-            waitingMessage = false;
-            break;
+			waitingMessage = false;
+			break;
             
         case DeviceName:
             name.clear();
@@ -1440,8 +1623,8 @@ void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
                 const char c = params[i];
                 name.append(&c, 1);
             }
-            waitingMessage = false;
-            break;
+			waitingMessage = false;
+			break;
             
         case GetPose:
             
@@ -1450,10 +1633,23 @@ void ofxDobot::elaborateParams(int idProtocol, vector<uint8_t> params){
             memcpy(&pose.z, &params[8], 4);
             memcpy(&pose.r, &params[12], 4);
             memcpy(pose.jointAngle, &params[16], 16);
-            waitingMessage = false;
-            break;
+			waitingMessage = false;
+			break;
             
+		case SETGETCPParams:
+			memcpy(&cpParams.acc, &params[0], 4);
+			memcpy(&cpParams.junctionVel, &params[4], 4);
+			memcpy(&cpParams.realTimeTrack, &params[12], 1);
+			if (cpParams.realTimeTrack) {
+				memcpy(&cpParams.period, &params[8], 4);
+			}
+			else {
+				memcpy(&cpParams.planAcc, &params[8], 4);
+			}
+			waitingMessage = false;
+			break;
         default:
+			ofLog(OF_LOG_VERBOSE, ofToString(idProtocol));
             waitingMessage = false;
             break;
     }
@@ -1464,10 +1660,12 @@ void ofxDobot::threadedFunction() {
 
 	while (isThreadRunning()) {
 
-        
-        //sleep(30);
+        sleep(16);
+		
 		if (connected) {
             
+			//update();
+
             if ( waitingMessage &&  ofGetElapsedTimeMillis() - timeMessage > cmdTimeout ){
                 
                 ofLog(OF_LOG_ERROR,"timeout message");
@@ -1479,10 +1677,10 @@ void ofxDobot::threadedFunction() {
                 updatePose();
             }
             
-			int numByte = serial.available();
+			const int numByte = serial.available();
 			if (numByte > 0) {
 
-				uint8_t message[numByte];
+				uint8_t message[1024];
 				serial.readBytes(message,numByte);
                 for ( int i=0; i < numByte ; i++ ){
                     messages.insert(messages.end(), message[i]);
@@ -1528,6 +1726,7 @@ void ofxDobot::threadedFunction() {
                     case cmdId:{
                         
                         idProtocol = byte;
+						//ofLog(OF_LOG_VERBOSE, ofToString(int(idProtocol)));
                         currentFase = Ctrl;
                         break;
                     }
@@ -1535,7 +1734,12 @@ void ofxDobot::threadedFunction() {
                         ctrl = byte;
                         rw = byte & 0x01;
                         isQueued = (byte >> 1) & 0x01;
-                        currentFase = Params;
+						if (payloadLenght == 2) {
+							currentFase = Checksum;
+						}
+						else {
+							currentFase = Params;
+						}
                         params.clear();
                         break;
                     }
@@ -1545,7 +1749,7 @@ void ofxDobot::threadedFunction() {
                             params.push_back(byte);
                             if ( params.size() == payloadLenght -2){
                                 elaborateParams(idProtocol, params);
-                                currentFase = Checksum;
+								currentFase = Checksum;
                             }
                         }
                         break;
@@ -1565,6 +1769,7 @@ void ofxDobot::threadedFunction() {
                         if ( verifiedChecksum != 0)
                             ofLog(OF_LOG_ERROR,"checksum error");
                         currentFase = Begin;
+						//ofLog(OF_LOG_VERBOSE, "checksum");
                         break;
                     }
                     case Error:{

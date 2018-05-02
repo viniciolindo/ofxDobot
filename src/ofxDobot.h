@@ -8,11 +8,13 @@
 
 #define TIMEOUT 5000
 
-#define DOBOT_XMIN 201
+#define DOBOT_XMIN 200
 #define DOBOT_XMAX 315
 
 #define DOBOT_YMIN -150
 #define DOBOT_YMAX 150
+
+#define DOBOT_QUEUE_LENGTH 16
 
 typedef struct TagPose {
 
@@ -135,15 +137,17 @@ public:
     ~ofxDobot();
 	bool setup(string serialName);
 
-	bool load(string fileName);
+    bool load(string fileName);
+	bool update();
     
-    void loadSVG(string fileName);
-    void updateSVG();
+    void setPolylines(vector<ofPolyline*> _polylines, int w, int h);
+    
     void drawSVG();
+    
     void setAutoZ();
     
 	void restart();
-	void update();
+	
 	void play();
 	void stop();
 	void clear();
@@ -209,6 +213,16 @@ public:
 
 private:
 
+    bool loadText(string fileName);
+    bool updateText();
+    
+    bool loadXML(string fileName);
+    bool updateXML();
+    
+    void loadSVG(string fileName);
+    bool updateSVG();
+    
+    
     void updatePose();
     
     void elaborateParams(int idProtocol, vector<uint8_t> params);
@@ -249,6 +263,10 @@ private:
 
     enum protocolFase { Begin, Header, PayloadLenght, cmdId, Ctrl, Params, Checksum, Error };
     
+    enum fileType { TXT, XML, SVG, NONE};
+    
+    fileType        typeFileOpened;
+    
 	string			noConnection;
 
 	uint8_t			*alarmsState;
@@ -257,15 +275,14 @@ private:
     ofxSVG          svg;
     
 	int 			rowIndex;
-	float 			lastTimeMessage;
+	//float 			lastTimeMessage;
 
 
 	//int				time;
 
 	ofBuffer		buffer;
-	bool			isXml;
     
-    bool            isSVG;
+    
     int             currentPath;
     int             currentCommand;
 
@@ -295,6 +312,16 @@ private:
     bool            automaticUpdatePose;
     
     vector<ofPolyline*>      polylines;
+    int                     totalNumPoints;
+    int                     currentPoint;
+    float                     printingCompletation;
     
+    float                   autoZ;
+    
+    int                     widthDrawing;
+    int                     heightDrawing;
+    
+
+	bool					isStopped;
 
 };
